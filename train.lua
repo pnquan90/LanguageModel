@@ -25,13 +25,13 @@ cutorch.manualSeed(2056)
 cudnn.fastest = true
 cudnn.benchmark = true
 
+local dropout_params = {drop_input = 0.5, drop_hidden = 0.3, drop_output = 0.5}
+g_params.model.drop_input = dropout_params.drop_input
+g_params.model.drop_hidden = dropout_params.drop_hidden
+g_params.model.drop_output = dropout_params.drop_output
+
 cmd:print_params(g_params)
 
-local schedule = {decay=0.8, 
-				  max_epoch = 6,
-				  max_max_epoch = 39,
-				 }				
-				
 
 
 
@@ -141,9 +141,13 @@ local function train_epoch(learning_rate, batch_size)
 
 end
 
-local function run(n_epochs)
+local function run(n_epochs, anneal)
 
-	print(torch.exp(eval(3)))
+	anneal = anneal or 'fast'
+	
+	print('Annealing: ' .. anneal)
+
+	--~ print(torch.exp(eval(3)))
 	local val_loss = {}
 	local l = eval(2)
 	print(torch.exp(l))
@@ -158,28 +162,37 @@ local function run(n_epochs)
 	
 	for epoch = 1, g_params.trainer.max_max_epochs do
 		
+		-- Early stopping after a long time no improvement on Valid set
+		if patience > g_params.trainer.max_patience then
+			break
+		end 
+		
 		local train_loss, wps = train_epoch(learning_rate, batch_size)
 
 		
 		val_loss[epoch] = eval(2)
 	
 		
-		if epoch >= g_params.trainer.max_epochs then
+		if anneal == 'fast' then
+		-- this schedule is from Zaremba, but IMO it takes too long to converge
+			if epoch >= g_params.trainer.max_epochs then
+				
+				learning_rate = learning_rate * g_params.trainer.learning_rate_shrink
 			
-			learning_rate = learning_rate * g_params.trainer.learning_rate_shrink
+			end
+		
+		else
+			-- Control patience when no improvement
+			if val_loss[epoch] >= val_loss[epoch - 1] * g_params.trainer.shrink_factor then
+				patience = patience + 1
+				learning_rate = learning_rate * g_params.trainer.learning_rate_shrink
+				--~ model:revertBestParams()
+			else
+				patience = 0
+				--~ model:saveBestParams()
+			end
 		
 		end
-		
-		
-		--~ Control patience when no improvement
-		--~ if val_loss[epoch] >= val_loss[epoch - 1] * g_params.trainer.shrink_factor then
-			--~ patience = patience + 1
-			--~ learning_rate = learning_rate / g_params.trainer.learning_rate_shrink
-			--~ model:revertBestParams()
-		--~ else
-			--~ patience = 0
-			--~ model:saveBestParams()
-		--~ end
 		
 		
 		--~ Display training information
@@ -202,7 +215,7 @@ local function run(n_epochs)
 		--~ end
 
         -- early stop when learning rate too small
-        --~ if learning_rate <= 1e-4 then break end
+        if learning_rate <= 1e-4 then break end
         
 		
 
@@ -215,7 +228,9 @@ local function run(n_epochs)
 	
 end
 
-run(g_params.trainer.n_epochs)
+
+g_params.trainer.shrink_factor = 0.9999
+run(g_params.trainer.n_epochs, 'slow')
 
 
 

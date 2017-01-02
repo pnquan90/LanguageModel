@@ -43,7 +43,7 @@ function RNNOption:__init()
                 'remove words appearing less than threshold')
     -- model
     self:option('-name',
-                'model.name', 'srnn_sm',
+                'model.name', 'lstm',
                 'name of the model: core_decoder. Cores: srnn | scrnn | lstm | gru | Decoders: sm | hsm | tsm')
     self:option('-nhid',
                 'model.n_hidden', 650,
@@ -54,10 +54,6 @@ function RNNOption:__init()
     self:option('-dropout',
                 'model.dropout', 0.5,
                 'Dropout value between recurrent layers')
-    self:optionChoice('-winit',
-                      'model.w_init', 'frand',
-                      'Weight matrix initialization (full, sparse, eye)',
-                      {'frand', 'srand', 'eye'})
     self:option('-init',
                 'model.initial_val', 0.05,
                 'Value used for initialization of hidden units')
@@ -67,7 +63,7 @@ function RNNOption:__init()
     
     -- trainer
     self:option('-batch_size',
-                'trainer.batch_size', 20,
+                'trainer.batch_size', 32,
                 'Size of mini-batch')
     self:option('-trbatches',
                 'trainer.trbatches', -1,
@@ -76,16 +72,8 @@ function RNNOption:__init()
                 'trainer.initial_learning_rate', 1,
                 'Initial learning rate')
     self:option('-etashrink',
-                'trainer.learning_rate_shrink', 0.8,
+                'trainer.learning_rate_shrink', 0.5,
                 'Learning rate shrink when validation error increases')
-    self:option('-shrinkfactor',
-                'trainer.shrink_factor', 0.9999,
-                'multiplier on last validation error to decide on eta shrink')
-    self:option('-shrinktype',
-                'trainer.shrink_type', 'slow',
-                'speed of learning rate annealing: at every epoch after the '
-                    .. 'first anneal (fast) or after validation error '
-                    .. 'stagnates (slow)')
     self:optionDisableIfNegative('-momentum',
                                  'trainer.momentum', 0,
                                  'Momentum (0 to disable)')
@@ -93,7 +81,7 @@ function RNNOption:__init()
                 'trainer.max_patience', 3,
                 'Maximum number of iterations to wait when loss does not decrease')
     self:option('-gradclip',
-				 'model.gradient_clip', 5,
+				 'model.gradient_clip', 8,
 				 'Norm of gradient clipping (0 to disable)')
     -- general
     self:option('-nepochs',
@@ -101,7 +89,7 @@ function RNNOption:__init()
                 'Number of training epochs')
 	self:option('-srhinkepochs',
                 'trainer.max_epochs', 6,
-                'Number of training epochs')
+                'Number of training epochs before shrinking')
     self:optionDisableIfNegative('-cuda', 'cuda_device', 1,
                                  'GPU device id (-1 for CPU)')
     self:option('-user',

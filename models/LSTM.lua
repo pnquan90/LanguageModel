@@ -5,12 +5,12 @@ local baseLSTM, parent = torch.class("nn.baseLSTM", "nn.AbstractRecurrent")
 -- set this to true to have it use nngraph instead of nn
 -- setting this to true can make your next GraphLSTM significantly faster
 
-function baseLSTM:__init(inputSize, outputSize, rho)
+function baseLSTM:__init(inputSize, outputSize, bn, rho)
 	
 	parent.__init(self, rho or 9999)
 	self.inputSize = inputSize
 	self.outputSize = outputSize
-	self.bn  = false
+	self.bn  = bn
 	self.eps = 0.1
 	self.momentum = 0.1
 	self.affine = true
@@ -57,9 +57,9 @@ function baseLSTM:buildModel()
       -- normalize recurrent terms W_h*h_{t-1} and W_x*x_t separately 
       -- Olalekan Ogunmolu <patlekano@gmail.com>
    
-      bn_wx = nn.BatchNormalization(4*self.outputSize, self.eps, self.momentum, self.affine)
-      bn_wh = nn.BatchNormalization(4*self.outputSize, self.eps, self.momentum, self.affine)
-      bn_c  = nn.BatchNormalization(self.outputSize, self.eps, self.momentum, self.affine)
+      bn_wx = cudnn.BatchNormalization(4*self.outputSize, self.eps, self.momentum, self.affine)
+      bn_wh = cudnn.BatchNormalization(4*self.outputSize, self.eps, self.momentum, self.affine)
+      bn_c  = cudnn.BatchNormalization(self.outputSize, self.eps, self.momentum, self.affine)
       
       -- evaluate the input sums at once for efficiency
       i2h = bn_wx(self.i2g(x):annotate{name='i2h'}):annotate {name='bn_wx'}
@@ -91,7 +91,7 @@ function baseLSTM:buildModel()
    local next_h
    if self.bn then
       -- gated cells form the output
-      next_h = nn.CMulTable()({out_gate, nn.Tanh()(bn_c(next_c):annotate {name = 'bn_c'}) })
+      next_h = nn.CMulTable()({out_gate, cudnn.Tanh()(bn_c(next_c):annotate {name = 'bn_c'}) })
    else
       -- gated cells form the output
       next_h = nn.CMulTable()({out_gate, nn.Tanh()(next_c)})

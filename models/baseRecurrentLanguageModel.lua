@@ -29,9 +29,9 @@ function LM:__init(params, vocab_size)
 
 		local LSTM, sequenceLSTM
 		if i < self.n_layers then
-			LSTM = nn.VariationalLSTM(H, H, 9999, params.drop_input, params.drop_hidden)
+			LSTM = nn.variationalLSTM(H, H, 9999, params.drop_input, params.drop_hidden)
 		else
-			LSTM = nn.VariationalLSTM(H, H, 9999, params.drop_input, params.drop_hidden, params.drop_output)
+			LSTM = nn.variationalLSTM(H, H, 9999, params.drop_input, params.drop_hidden, params.drop_output)
 		end
 		
 		sequenceLSTM = nn.VariationalSequencer(LSTM)
@@ -46,7 +46,11 @@ function LM:__init(params, vocab_size)
 		--~ table.insert(self.rnns, rnn)
 	end
 	
-	--~ self.net:add(self.sequencer)
+	--~ stepModule:add(nn.Dropout(self.dropout))
+	
+	--~ self.sequencer = nn.Sequencer(stepModule)
+	
+	self.net:add(self.sequencer)
 	--~ self.net:add(nn.Dropout(self.dropout))	
 	
 	local linear = nn.Linear(H, V)
@@ -63,7 +67,12 @@ function LM:__init(params, vocab_size)
 	self.params, self.gradParams = self:getParameters()
 	--~ self.best_params = torch.CudaTensor(self.params:nElement()):copy(self.params)
 	self.params:uniform(-self.initial_val, self.initial_val)
-
+	
+	
+	-- Initialise the LSTM forget gate with higher biases to encourage remembering from the beginning
+	--~ for _, rnn in ipairs(self.rnns) do
+		--~ rnn.i2g.bias[{{2*self.n_hiddens + 1, 3 * self.n_hiddens}}]:fill(1.0)
+	--~ end
 	
 	
 	local total_params = self.params:nElement()
