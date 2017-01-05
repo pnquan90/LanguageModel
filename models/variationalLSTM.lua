@@ -42,8 +42,8 @@ end
 -- Supposed to be called before training every sequence
 -- Also, the noise must be reset to 1 before testings
 function VariationalLSTM:sampleNoise(batch_size)
-	self.noise_i:resize(batch_size, 4 * self.inputSize):zero()
-	self.noise_h:resize(batch_size, 4 * self.outputSize):zero()
+	self.noise_i:resize(batch_size, self.inputSize):zero()
+	self.noise_h:resize(batch_size, self.outputSize):zero()
 	
 	if self.noise_o then
 		self.noise_o:resize(batch_size, self.outputSize):zero()
@@ -62,8 +62,8 @@ function VariationalLSTM:sampleNoise(batch_size)
 end
 
 function VariationalLSTM:resetNoise(batch_size)
-	self.noise_i:resize(batch_size, 4 * self.inputSize):zero():add(1)
-	self.noise_h:resize(batch_size, 4 * self.outputSize):zero():add(1)
+	self.noise_i:resize(batch_size, self.inputSize):zero():add(1)
+	self.noise_h:resize(batch_size, self.outputSize):zero():add(1)
 	
 	if self.noise_o then
 		self.noise_o:resize(batch_size, self.outputSize):zero():add(1)
@@ -75,11 +75,14 @@ function VariationalLSTM:buildModel()
 	-- input : {input, prevOutput, prevCell, noise_i, noise_h}
 	-- output : {output, cell}
 	
-	-- Dropout is applied based on Yarin Gal's proposal
+	-- Dropout is applied based on Yarin Gal's proposal, but the speed reduction is too much
+	-- So I apply directly on the x and h before every gate
 
 	-- Calculate all four gates in one go : input, hidden, forget, output
-	--~ self.i2g = nn.Linear(self.inputSize, 4*self.outputSize)
-	--~ self.o2g = nn.Linear(self.outputSize, 4*self.outputSize)
+	self.i2g = nn.Linear(self.inputSize, 4*self.outputSize)
+	self.o2g = nn.Linear(self.outputSize, 4*self.outputSize)
+	
+	
 	
 	local function local_Dropout(input, noise)
 		return nn.CMulTable()({input, noise})
@@ -87,6 +90,7 @@ function VariationalLSTM:buildModel()
 
 	assert(nngraph, "Missing nngraph package")
 	local x, prev_h, prev_c, noise_i, noise_h, noise_o
+	local i2h, h2h
 	
 	
 	local inputs = {}
@@ -103,29 +107,25 @@ function VariationalLSTM:buildModel()
 		x, prev_h, prev_c, noise_i, noise_h = unpack(inputs)
 	end
 	 
-	
-	local reshaped_noise_i = nn.Reshape(4, self.inputSize)(noise_i)
-	local reshaped_noise_h = nn.Reshape(4, self.outputSize)(noise_h)
-	local sliced_noise_i   = nn.SplitTable(2)(reshaped_noise_i)
-	local sliced_noise_h   = nn.SplitTable(2)(reshaped_noise_h)
+	local dropped_x = local_Dropout(x, noise_i)
+	local dropped_h = local_Dropout(prev_h, noise_h)
   
-	local i2h, h2h  = {}, {}
 	
 	-- Calculate 4 gates:
+	i2h = self.i2g(dropped_x):annotate{name='i2h'}
+    h2h = self.o2g(dropped_h):annotate{name='h2h'}
 	
-	for i = 1, 4 do
-		local dropped_x = local_Dropout(x, nn.SelectTable(i)(sliced_noise_i))
-		local dropped_h = local_Dropout(prev_h, nn.SelectTable(i)(sliced_noise_h))
-		i2h[i] = nn.Linear(self.inputSize, self.outputSize)(dropped_x)
-		h2h[i] = nn.Linear(self.outputSize, self.outputSize)(dropped_h)
-	end
 	
 	-- Nonlinearity
-	--~ local in_gate = nn.Sigmoid()(nn.CAddTable()(
-	local in_gate = nn.Sigmoid()(nn.CAddTable()({i2h[1], h2h[1]}))
-	local in_transform = nn.Tanh()(nn.CAddTable()({i2h[2], h2h[2]}))
-	local forget_gate = nn.Sigmoid()(nn.CAddTable()({i2h[3], h2h[3]}))
-	local out_gate = nn.Sigmoid()(nn.CAddTable()({i2h[4], h2h[4]}))
+	local all_input_sums = nn.CAddTable()({i2h, h2h})
+
+	local reshaped = nn.Reshape(4, self.outputSize)(all_input_sums)
+	-- input, hidden, forget, output
+	local n1, n2, n3, n4 = nn.SplitTable(2)(reshaped):split(4)
+	local in_gate = nn.Sigmoid()(n1)
+	local in_transform = nn.Tanh()(n2)
+	local forget_gate = nn.Sigmoid()(n3)
+	local out_gate = nn.Sigmoid()(n4)
 
 	-- perform the LSTM update
 	local next_c           = nn.CAddTable()({

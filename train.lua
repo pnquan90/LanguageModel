@@ -10,7 +10,6 @@ require 'nngraph'
 model_utils = require('utils.model_utils')
 require('utils.batchloader')
 require('utils.textsource')
---~ require 'models.LSTM'
 
 -- Parse arguments
 local cmd = RNNOption()
@@ -25,7 +24,7 @@ cutorch.manualSeed(2056)
 cudnn.fastest = true
 cudnn.benchmark = true
 
-local dropout_params = {drop_input = 0.5, drop_hidden = 0.3, drop_output = 0.5}
+local dropout_params = {drop_input = 0.4, drop_hidden = 0.2, drop_output = 0.4}
 g_params.model.drop_input = dropout_params.drop_input
 g_params.model.drop_hidden = dropout_params.drop_hidden
 g_params.model.drop_output = dropout_params.drop_output
@@ -174,7 +173,7 @@ local function run(n_epochs, anneal)
 	
 		
 		if anneal == 'fast' then
-		-- this schedule is from Zaremba, but IMO it takes too long to converge
+		-- this schedule is from Zaremba to converge faster
 			if epoch >= g_params.trainer.max_epochs then
 				
 				learning_rate = learning_rate * g_params.trainer.learning_rate_shrink
@@ -184,14 +183,16 @@ local function run(n_epochs, anneal)
 		else
 			-- Control patience when no improvement
 			if val_loss[epoch] >= val_loss[epoch - 1] * g_params.trainer.shrink_factor then
-				patience = patience + 1
 				learning_rate = learning_rate * g_params.trainer.learning_rate_shrink
-				--~ model:revertBestParams()
-			else
-				patience = 0
-				--~ model:saveBestParams()
 			end
 		
+		end
+		
+		-- long time no improvement -> increase patience
+		if val_loss[epoch] >= val_loss[epoch - 1] * g_params.trainer.shrink_factor then
+			patience = patience + 1
+		else
+			patience = 0
 		end
 		
 		
@@ -215,7 +216,7 @@ local function run(n_epochs, anneal)
 		--~ end
 
         -- early stop when learning rate too small
-        if learning_rate <= 1e-4 then break end
+        if learning_rate <= 1e-3 then break end
         
 		
 
@@ -230,7 +231,7 @@ end
 
 
 g_params.trainer.shrink_factor = 0.9999
-run(g_params.trainer.n_epochs, 'slow')
+run(g_params.trainer.n_epochs, 'fast')
 
 
 

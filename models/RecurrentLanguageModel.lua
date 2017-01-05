@@ -20,10 +20,9 @@ function LM:__init(params, vocab_size)
 	self.rnns = {}
 	
 	local V, H = self.vocab_size, self.n_hiddens
-	self.net:add(nn.LookupTable(V, H))
-	
-	--~ nn.FastLSTM.usenngraph = true
-	--~ local stepModule = nn.Sequential()
+	--~ self.net:add(nn.LookupTable(V, H))
+	local lut = nn.LookupTable(V, H)
+	self.net:add(lut)
 	
 	for i = 1, self.n_layers do
 
@@ -58,12 +57,16 @@ function LM:__init(params, vocab_size)
 	--~ Ship model to GPU
 	--~ Does not support CPU due to using cudnn
 	self.net:cuda()
+	
+	linear:share(lut, 'weight', 'gradWeight')
 	self.net:remember('both')
+	
+	
 	
 	self.params, self.gradParams = self:getParameters()
 	--~ self.best_params = torch.CudaTensor(self.params:nElement()):copy(self.params)
 	self.params:uniform(-self.initial_val, self.initial_val)
-
+	
 	
 	
 	local total_params = self.params:nElement()

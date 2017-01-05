@@ -63,32 +63,26 @@ function RNNOption:__init()
     
     -- trainer
     self:option('-batch_size',
-                'trainer.batch_size', 32,
+                'trainer.batch_size', 20,
                 'Size of mini-batch')
-    self:option('-trbatches',
-                'trainer.trbatches', -1,
-                'Number of training batches. -1 = full data')
     self:option('-eta',
                 'trainer.initial_learning_rate', 1,
                 'Initial learning rate')
     self:option('-etashrink',
-                'trainer.learning_rate_shrink', 0.5,
+                'trainer.learning_rate_shrink', 0.75,
                 'Learning rate shrink when validation error increases')
-    self:optionDisableIfNegative('-momentum',
-                                 'trainer.momentum', 0,
-                                 'Momentum (0 to disable)')
     self:option('-maxpt',
                 'trainer.max_patience', 3,
                 'Maximum number of iterations to wait when loss does not decrease')
     self:option('-gradclip',
-				 'model.gradient_clip', 8,
+				 'model.gradient_clip', 5,
 				 'Norm of gradient clipping (0 to disable)')
     -- general
     self:option('-nepochs',
                 'trainer.max_max_epochs', 39,
                 'Number of training epochs')
 	self:option('-srhinkepochs',
-                'trainer.max_epochs', 6,
+                'trainer.max_epochs', 12,
                 'Number of training epochs before shrinking')
     self:optionDisableIfNegative('-cuda', 'cuda_device', 1,
                                  'GPU device id (-1 for CPU)')
