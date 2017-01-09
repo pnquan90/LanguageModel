@@ -24,10 +24,11 @@ cutorch.manualSeed(2056)
 cudnn.fastest = true
 cudnn.benchmark = true
 
-local dropout_params = {drop_input = 0.4, drop_hidden = 0.2, drop_output = 0.4}
+local dropout_params = {drop_input = 0.4, drop_hidden = 0.2, drop_output = 0.4, drop_emb = 0.2}
 g_params.model.drop_input = dropout_params.drop_input
 g_params.model.drop_hidden = dropout_params.drop_hidden
 g_params.model.drop_output = dropout_params.drop_output
+g_params.model.drop_emb    = dropout_params.drop_emb
 
 cmd:print_params(g_params)
 

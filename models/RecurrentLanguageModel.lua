@@ -2,6 +2,7 @@ require 'models.LSTM'
 require 'models.graphLSTM'
 require 'models.variationalLSTM'
 require 'models.variationalSequencer'
+require 'models.SequenceDropout'
 
 local LM = torch.class('nn.RecurrentLanguageModel')
 
@@ -23,6 +24,9 @@ function LM:__init(params, vocab_size)
 	--~ self.net:add(nn.LookupTable(V, H))
 	local lut = nn.LookupTable(V, H)
 	self.net:add(lut)
+	
+	-- Dropout on top of embedding
+	self.net:add(nn.SequenceDropout(params.drop_emb))
 	
 	for i = 1, self.n_layers do
 
